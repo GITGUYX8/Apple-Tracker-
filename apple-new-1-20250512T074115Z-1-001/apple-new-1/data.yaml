@@ -1,0 +1,14 @@
+names:
+- green apple
+- red apple
+- rotten apple
+nc: 3
+roboflow:
+  license: CC BY 4.0
+  project: apple-new-wjmro-dlikc
+  url: https://universe.roboflow.com/hari-space/apple-new-wjmro-dlikc/dataset/1
+  version: 1
+  workspace: hari-space
+test: ../test/images
+train: ../train/images
+val: ../valid/images

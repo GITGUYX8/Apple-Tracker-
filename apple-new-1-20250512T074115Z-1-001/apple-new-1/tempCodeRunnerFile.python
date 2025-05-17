@@ -1,0 +1,147 @@
+import cv2
+import numpy as np
+import threading
+import time
+from ultralytics import YOLO
+import os
+## working properly on actual apple
+class DualCameraYOLOv8SingleObjectTracker:
+    def __init__(self, camera1_id=1, camera2_id=0, model_name="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt", 
+                 conf_threshold=0.5):
+        self.camera1_id = camera1_id
+        self.camera2_id = camera2_id
+        self.camera1 = None
+        self.camera2 = None
+        self.frame1 = None
+        self.frame2 = None
+        self.running = False
+        
+        # YOLOv8 parameters
+        self.model_name = model_name
+        self.conf_threshold = conf_threshold
+        self.initialize_model()
+        
+        # Tracking parameters
+        self.tracking_initialized1 = False
+        self.tracking_initialized2 = False
+        self.tracking_box1 = None
+        self.tracking_box2 = None
+        self.detection_counter = 0
+        self.redetection_interval = 1
+        
+        # Output directory for saving frames
+        # self.output_dir = output_dir
+        # os.makedirs(self.output_dir, exist_ok=True)
+        
+    def initialize_model(self):
+        """Initialize YOLOv8 model"""
+        self.model = YOLO(self.model_name)
+        
+    def initialize_cameras(self):
+        """Initialize both camera streams"""
+        self.camera1 = cv2.VideoCapture(self.camera1_id)
+        self.camera2 = cv2.VideoCapture(self.camera2_id)
+        
+        # Check if cameras opened successfully
+        if not self.camera1.isOpened() or not self.camera2.isOpened():
+            print("Error: Could not open one or both cameras.")
+            return False
+            
+        # Set camera properties if needed
+        self.camera1.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.camera1.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.camera2.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.camera2.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        
+        return True
+        
+    def capture_frames(self):
+        """Continuously capture frames from both cameras"""
+        prev_time = time.time()
+        
+        while self.running:
+            ret1, self.frame1 = self.camera1.read()
+            ret2, self.frame2 = self.camera2.read()
+            
+            if not ret1 or not ret2:
+                print("Error: Failed to grab frames from one or both cameras")
+                break
+                
+            time.sleep(0.01)  # Small delay to prevent high CPU usage
+            
+    def process_frames(self):
+        """Process frames from both cameras with YOLOv8"""
+        prev_time = time.time()
+        
+        while self.running and self.frame1 is not None and self.frame2 is not None:
+            # Calculate FPS
+            new_time = time.time()
+            fps = 1 / (new_time - prev_time) if (new_time - prev_time) > 0 else 0
+            prev_time = new_time
+            
+            # Create copies of frames to avoid modification during capture
+            frame1_copy = self.frame1.copy()
+            frame2_copy = self.frame2.copy()
+            
+            # Run YOLOv8 inference on the frames
+            results1 = self.model(frame1_copy, conf=self.conf_threshold)
+            results2 = self.model(frame2_copy, conf=self.conf_threshold)
+            
+            # Visualize the results on the frames
+            annotated_frame1 = results1[0].plot()
+            annotated_frame2 = results2[0].plot()
+            
+            # Add FPS information
+            cv2.putText(annotated_frame1, f'FPS: {int(fps)}', (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(annotated_frame2, f'FPS: {int(fps)}', (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            
+            # Display the annotated frames
+            cv2.imshow("Camera 1 - YOLOv8 Detection", annotated_frame1)
+            cv2.imshow("Camera 2 - YOLOv8 Detection", annotated_frame2)
+            
+            # Save frames if needed
+            # frame_path1 = os.path.join(self.output_dir, f"camera1_frame_{int(time.time())}.jpg")
+            # frame_path2 = os.path.join(self.output_dir, f"camera2_frame_{int(time.time())}.jpg")
+            # cv2.imwrite(frame_path1, annotated_frame1)
+            # cv2.imwrite(frame_path2, annotated_frame2)
+            
+            # Break the loop if 'q' is pressed
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                self.running = False
+                break
+                
+    def start(self):
+        """Start the dual camera tracking system"""
+        if not self.initialize_cameras():
+            return
+            
+        self.running = True
+        
+        # Start capture thread
+        capture_thread = threading.Thread(target=self.capture_frames)
+        capture_thread.daemon = True
+        capture_thread.start()
+        
+        # Allow time for cameras to initialize
+        time.sleep(1.0)
+        
+        # Start processing frames
+        self.process_frames()
+        
+        # Cleanup
+        self.running = False
+        capture_thread.join(timeout=1.0)
+        self.camera1.release()
+        self.camera2.release()
+        cv2.destroyAllWindows()
+        print("Tracking stopped.")
+
+if __name__ == "__main__":
+    tracker = DualCameraYOLOv8SingleObjectTracker(
+        camera1_id=0,
+        camera2_id=1,
+        model_name="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt",
+        conf_threshold=0.5,
+        # output_dir="./frames"
+    )
+    tracker.start()
