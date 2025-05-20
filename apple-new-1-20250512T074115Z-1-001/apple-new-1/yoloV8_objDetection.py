@@ -7,8 +7,8 @@ import os  # Import os module for file and directory operations
 import logging
 ## working properly on actual apple
 class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking objects using two cameras and YOLOv8
-    def __init__(self, camera1_id=1, camera2_id=0, model_name="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt",
-                 conf_threshold=0.5, image_path="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/image.png", img_result="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/"):  # Initialize the class with default parameters
+    def __init__(self, camera1_id=1, camera2_id=0, model_name="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt",
+                 conf_threshold=0.5, image_path="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/imageRed.png", img_result="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/"):  # Initialize the class with default parameters
         self.camera1_id = camera1_id  # Store the ID for the first camera
         self.camera2_id = camera2_id  # Store the ID for the second camera
         self.camera1 = None  # Initialize camera1 object as None
@@ -28,7 +28,7 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
         self.tracking_box1 = None  # Variable to store the tracking box for camera1
         self.tracking_box2 = None  # Variable to store the tracking box for camera2
         self.detection_counter = 0  # Counter for detection frames
-        self.redetection_interval = 1  # Interval for re-detection
+        self.redetection_interval =  1 # Interval for re-detection
         
         # Output directory for saving frames
         self.img_result = img_result  # Commented out: would store directory path for saving frames
@@ -85,14 +85,53 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
             frame2_copy = self.frame2.copy()  # Create a copy of frame2 to avoid modifying the original
             
             # Run YOLOv8 inference on the frames
-            logging.getLogger("ultralytics").setLevel(logging.WARNING)  # Set logging level for YOLOv8
+            logging.getLogger("ultralytics").setLevel(logging.WARNING)  # Set logging level for YOLOv8 "to stop spamming in terminal"
             results1 = self.model(frame1_copy, conf=self.conf_threshold)  # Run YOLO detection on frame1
             results2 = self.model(frame2_copy, conf=self.conf_threshold)  # Run YOLO detection on frame2
             # Visualize the results on the frames
             annotated_frame1 = results1[0].plot()  # Create a visualization of the detection results for frame1
             annotated_frame2 = results2[0].plot()  # Create a visualization of the detection results for frame2
-            print("Results1: ", annotated_frame1)
-            print("Results2: ", annotated_frame2)
+
+            box1 = results1[0].boxes 
+            box2 = results2[0].boxes
+            
+            print(box1)
+            print(type(box1))
+            # # print(len(box1.cls)) # print the element in tensor class  detected in frame1
+            # if len(box1.cls) == 0 and len(box2.cls) == 0:
+            #     print("Not detected")  
+           
+            # else : 
+            #     apple_result1 = box1.cls
+            #     apple_result2 = box2.cls
+
+            #     if len(apple_result1) > 0 or len(apple_result2) > 0:
+            #         if len(apple_result1) ==0 : 
+            #             pass
+            #         if len(apple_result2) ==0 :
+            #             pass
+            #         else:
+            #             if apple_result1[0] != apple_result2[0] :
+            #                 pass 
+            #             elif apple_result1[0] == 1  :
+            #                 print("Apple detected in red apple")
+            #             elif  (apple_result1[0] == 2 or apple_result2[0] == 2):
+            #                 print("Apple detected in rotten apple")
+                    # if len(apple_result2) ==0 :
+                    #     apple_result2.append(-1)  # empty list causing error can't be used
+                    # if len(box1.cls) == -1 and len(box2.cls) == -1:
+                    #     print("Not detected")
+                
+                    # if apple_result1[0] == 0:
+                    #     print("Apple detected in green apple")
+                    # elif apple_result1[0] == 1:
+                    #     print("Apple detected in red apple")
+                    # elif (len(apple_result1) > 0 and len(apple_result2) > 0) and (apple_result1[0] == 2 or apple_result2[0] == 2):
+                    #     print("Apple detected in rotten apple")
+                
+                # print(apple_result1)
+                # print(apple_result2)
+            
             # Add FPS information
             cv2.putText(annotated_frame1, f'FPS: {int(fps)}', (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)  # Add FPS text to frame1
             cv2.putText(annotated_frame2, f'FPS: {int(fps)}', (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)  # Add FPS text to frame2
@@ -150,23 +189,33 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
             return
         
         # Run YOLOv8 inference on the image
+        logging.getLogger("ultralytics").setLevel(logging.WARNING)  # Set logging level for YOLOv8
         results = self.model(img)
-        
         # Visualize the results on the image
         annotated_img = results[0].plot()
-        
+        # print(">>>>> ",type(results[0].names[]))
+        box = results[0].boxes
+        print(box)
+        print(type(box.cls))
+        apple_result = int(box[0].cls[0]) # for value of apple_result (0: greenapple, 1: red apple, 2: rotten apple)
+        if apple_result == 0: # green apple
+            print("apple is green")
+        elif apple_result == 1: # red apple
+            print("apple is red")
+        elif apple_result == 2: # rotten apple
+            print("apple is rotten")
         # Display the annotated image
         cv2.imshow("YOLOv8 Detection", annotated_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":  # Check if this script is being run directly
-    use_cam = False
+    use_cam = False  # Set use_cam to True to access the camera and False to use an image
     if use_cam:
         tracker = DualCameraYOLOv8SingleObjectTracker(  # Create an instance of the tracker class
             camera1_id=0,  # Set camera1 ID to 0
             camera2_id=1,  # Set camera2 ID to 1
-            model_name="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt",  # Set path to the YOLO model
+            model_name="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt",  # Set path to the YOLO model
             conf_threshold=0.5,
               # Set confidence threshold to 0.5
             # output_dir="./frames"  # Commented out: would set the output directory for saving frames
@@ -177,10 +226,10 @@ if __name__ == "__main__":  # Check if this script is being run directly
         tracker = DualCameraYOLOv8SingleObjectTracker(  # Create an instance of the tracker class
         camera1_id=0,  # Set camera1 ID to 0
         camera2_id=1,  # Set camera2 ID to 1
-        model_name="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt",  # Set path to the YOLO model
+        model_name="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt",  # Set path to the YOLO model
         conf_threshold=0.5,
             # Set confidence threshold to 0.5
         # output_dir="./frames"  # Commented out: would set the output directory for saving frames
-        image_path="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/image.png"
+        image_path="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/imageRed.png"
     )
         tracker.detect_on_image()
