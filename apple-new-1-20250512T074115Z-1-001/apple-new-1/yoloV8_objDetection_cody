@@ -5,11 +5,11 @@ import time  # Import time module for timing operations
 from ultralytics import YOLO  # Import YOLO model from ultralytics
 import os  # Import os module for file and directory operations
 import logging
-import torch
+
 ## working properly on actual apple
 class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking objects using two cameras and YOLOv8
     def __init__(self, camera1_id=1, camera2_id=0, model_name="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/train3/weights/best.pt",
-                 conf_threshold=0.5, image_path="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/image.png", img_result="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/"):  # Initialize the class with default parameters
+                 conf_threshold=0.5, image_path="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/imageYellow.png", img_result="D:/openCV/apple_v2/apple-new-1-20250512T074115Z-1-001/apple-new-1/"):  # Initialize the class with default parameters
         self.camera1_id = camera1_id  # Store the ID for the first camera
         self.camera2_id = camera2_id  # Store the ID for the second camera
         self.camera1 = None  # Initialize camera1 object as None
@@ -96,41 +96,23 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
             box1 = results1[0].boxes 
             box2 = results2[0].boxes
             
-            # # print(len(box1.cls)) # print the element in tensor class  detected in frame1
-            # if len(box1.cls) == 0 and len(box2.cls) == 0:
-            #     print("Not detected")  
-           
-            # else : 
-            #     apple_result1 = box1.cls
-            #     apple_result2 = box2.cls
+            if len(box1.cls) == 0  or len(box2.cls) == 0:
+                if len(box1.cls) > 0 and box1.cls[0] == 2:
+                    print("Apple detected in rotten apple")
+                if len(box2.cls) > 0 and box2.cls[0] == 2:
+                    print("Apple detected in rotten apple")
+                elif len(box1.cls) == 0 or len(box2.cls) == 0:
+                    pass
 
-            #     if len(apple_result1) > 0 or len(apple_result2) > 0:
-            #         if len(apple_result1) ==0 : 
-            #             pass
-            #         if len(apple_result2) ==0 :
-            #             pass
-            #         else:
-            #             if apple_result1[0] != apple_result2[0] :
-            #                 pass 
-            #             elif apple_result1[0] == 1  :
-            #                 print("Apple detected in red apple")
-            #             elif  (apple_result1[0] == 2 or apple_result2[0] == 2):
-            #                 print("Apple detected in rotten apple")
-            #         # if len(apple_result2) ==0 :
-            #         #     apple_result2.append(-1)  # empty list causing error can't be used
-            #         # if len(box1.cls) == -1 and len(box2.cls) == -1:
-            #         #     print("Not detected")
-                
-            #         # if apple_result1[0] == 0:
-            #         #     print("Apple detected in green apple")
-            #         # elif apple_result1[0] == 1:
-            #         #     print("Apple detected in red apple")
-            #         # elif (len(apple_result1) > 0 and len(apple_result2) > 0) and (apple_result1[0] == 2 or apple_result2[0] == 2):
-            #         #     print("Apple detected in rotten apple")
-                
-            #     # print(apple_result1)
-            #     # print(apple_result2)
-            # # Inside the process_frames method, after detecting apples:
+            elif len(box1.cls) > 0 and len(box2.cls) > 0:
+                if box1.cls[0] == 2 or box2.cls[0] == 2:
+                    print("apple is rotten")
+                elif box1.cls[0] != box2.cls[0]:
+                    print("apple is fresh")
+                elif box1.cls[0] == 1: 
+                    print("apple is red")
+                elif box1.cls[0] == 0:
+                    print("apple is green")
 
 # Do the same for frame 2 if needed
 
@@ -234,20 +216,20 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
         red_percentage = (red_area / total_area) * 100 if total_area > 0 else 0
         rotten_percentage = (rotten_area / total_area) * 100 if total_area > 0 else 0
         
-        # Visualize the segmentation (optional)
-        green_result = cv2.bitwise_and(apple_region, apple_region, mask=green_mask)
-        red_result = cv2.bitwise_and(apple_region, apple_region, mask=red_mask)
-        rotten_result = cv2.bitwise_and(apple_region, apple_region, mask=rotten_mask)
+        # # Visualize the segmentation (optional)
+        # green_result = cv2.bitwise_and(apple_region, apple_region, mask=green_mask)
+        # red_result = cv2.bitwise_and(apple_region, apple_region, mask=red_mask)
+        # rotten_result = cv2.bitwise_and(apple_region, apple_region, mask=rotten_mask)
         
-        # Stack the visualization horizontally
-        visualization = np.hstack([
-            apple_region,
-            cv2.cvtColor(green_mask, cv2.COLOR_GRAY2BGR),
-            cv2.cvtColor(red_mask, cv2.COLOR_GRAY2BGR),
-            cv2.cvtColor(rotten_mask, cv2.COLOR_GRAY2BGR)
-        ])
+        # # Stack the visualization horizontally
+        # visualization = np.hstack([
+        #     apple_region,
+        #     cv2.cvtColor(green_mask, cv2.COLOR_GRAY2BGR),
+        #     cv2.cvtColor(red_mask, cv2.COLOR_GRAY2BGR),
+        #     cv2.cvtColor(rotten_mask, cv2.COLOR_GRAY2BGR)
+        # ])
         
-        # Display the visualization
+        # # Display the visualization
         # cv2.imshow("Apple Color Segmentation", visualization)
         
         return {
@@ -268,6 +250,7 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
         
         # Read the image
         img = cv2.imread(self.image_path)
+        cv2.namedWindow("YOLOv8 Inference", cv2.WINDOW_NORMAL)
         if img is None:
             print(f"Error: Could not read image from {self.image_path}")
             return
@@ -295,22 +278,39 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
                 
                 # Display the results on the frame
                 text_y_pos = 100 + i * 60  # Position text below FPS counter
-                # cv2.putText(annotated_img, f"Green: {areas['green_percentage']:.1f}%", 
-                #         (20, text_y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                # cv2.putText(annotated_img, f"Red: {areas['red_percentage']:.1f}%", 
-                #         (20, text_y_pos + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                # cv2.putText(annotated_img, f"Rotten: {areas['rotten_percentage']:.1f}%", 
-                #         (20, text_y_pos + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (139, 69, 19), 2)
-                print(f"Green: {areas['green_percentage']:.1f}%")
-                print(f"Red: {areas['red_percentage']:.1f}%")
-                print(f"Rotten: {areas['rotten_percentage']:.1f}%")
+                cv2.putText(annotated_img, f"Green: {areas['green_percentage']:.1f}%", 
+                        (20, text_y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                cv2.putText(annotated_img, f"Red: {areas['red_percentage']:.1f}%", 
+                        (20, text_y_pos + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.putText(annotated_img, f"Rotten: {areas['rotten_percentage']:.1f}%", 
+                        (20, text_y_pos + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (139, 69, 19), 2)
+
+                green_detected = areas['green_percentage']
+                red_detected = areas['red_percentage']
+                rotten_detected = areas['rotten_percentage']
+                
+                print(green_detected)
+                print(red_detected)
+                print(rotten_detected)
+                if green_detected > 50: 
+                    print(f"Green: {areas['green_percentage']:.1f}%")
+                    print("Apple is green")
+                if red_detected > 50:
+                    
+                    print(f"Red: {areas['red_percentage']:.1f}%")
+                    print("Apple is red")
+                if rotten_detected > 15:
+                    print(f"Rotten: {areas['rotten_percentage']:.1f}%")
+                    print("Apple is rotten")
+            
+
         # Display the annotated image
         cv2.imshow("YOLOv8 Detection", annotated_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":  # Check if this script is being run directly
-    use_cam = False  # Set use_cam to True to access the camera and False to use an image
+    use_cam = True  # Set use_cam to True to access the camera and False to use an image
     if use_cam:
         tracker = DualCameraYOLOv8SingleObjectTracker(  # Create an instance of the tracker class
             camera1_id=0,  # Set camera1 ID to 0
@@ -330,6 +330,10 @@ if __name__ == "__main__":  # Check if this script is being run directly
         conf_threshold=0.5,
             # Set confidence threshold to 0.5
         # output_dir="./frames"  # Commented out: would set the output directory for saving frames
-        image_path="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/image.png"
+        image_path="D:/openCV/Apple-Tracker-/apple-new-1-20250512T074115Z-1-001/apple-new-1/imageYellow.png"
     )
         tracker.detect_on_image()
+
+
+
+
