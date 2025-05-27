@@ -38,7 +38,7 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
     def initialize_model(self):
         """Initialize YOLOv8 model"""
         self.model = YOLO(self.model_name)  # Load the YOLO model from the specified path
-        self.class_name = self.model.names  # Get the class names from the model
+        self.class_names = self.model.names  # Get the class names from the model
     def initialize_cameras(self):
         """Initialize both camera streams"""
         self.camera1 = cv2.VideoCapture(self.camera1_id)  # Initialize the first camera with its ID
@@ -71,7 +71,7 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
             
             time.sleep(0.01)  # Small delay to prevent high CPU usage
 
-    def classify_by_model(self,class_id, confidence):
+    def get_apple_type_from_model(self,class_id, confidence):
         # Get class name from model
         class_name = self.class_names[int(class_id)]
         
