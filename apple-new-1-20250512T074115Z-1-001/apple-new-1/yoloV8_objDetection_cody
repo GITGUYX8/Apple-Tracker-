@@ -38,7 +38,7 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
     def initialize_model(self):
         """Initialize YOLOv8 model"""
         self.model = YOLO(self.model_name)  # Load the YOLO model from the specified path
-    
+        self.class_name = self.model.names  # Get the class names from the model
     def initialize_cameras(self):
         """Initialize both camera streams"""
         self.camera1 = cv2.VideoCapture(self.camera1_id)  # Initialize the first camera with its ID
@@ -70,7 +70,116 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
                 break  # Exit the loop
             
             time.sleep(0.01)  # Small delay to prevent high CPU usage
+
+    def classify_by_model(self,class_id, confidence):
+        # Get class name from model
+        class_name = self.class_names[int(class_id)]
         
+        # Map class names to display format and colors
+        class_mapping = {
+            'green apple': ("GREEN", (0, 255, 0)),
+            'red apple': ("RED", (0, 0, 255)),
+            'rotten apple': ("ROTTEN", (0, 165, 255)),
+            'apple': ("APPLE", (255, 255, 0)),  # Generic apple class
+            # Add more mappings based on your model's class names
+        }
+        
+        # Get the mapped type and color, or use the original class name
+        if class_name.lower() in class_mapping:
+            apple_type, type_color = class_mapping[class_name.lower()]
+        else:
+            # If class name not in mapping, use it as is
+            apple_type = class_name.upper()
+            type_color = (255, 255, 255)  # White color for unknown types
+        
+        return apple_type, confidence * 100, type_color
+    def display_apple_results(self, frame, areas, apple_index, camera_name, class_id, model_confidence):
+        """
+        Display apple classification results based on model prediction
+        
+        Args:
+            frame: The frame to draw on
+            areas: Dictionary containing color percentages (for display only)
+            apple_index: Index of the apple (for multiple apples)
+            camera_name: Name of the camera for identification
+            class_id: Class ID from model prediction
+            model_confidence: Confidence score from model
+        """
+        # Get apple classification from model
+        apple_type, confidence, type_color = self.get_apple_type_from_model(class_id, model_confidence)
+        
+        # Create a results panel
+        panel_height = 200
+        panel_width = 320
+        panel_x = frame.shape[1] - panel_width - 10
+        panel_y = 10 + (apple_index * (panel_height + 10))
+        
+        # Draw semi-transparent background panel
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (panel_x, panel_y), 
+                     (panel_x + panel_width, panel_y + panel_height), 
+                     (50, 50, 50), -1)
+        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+        
+        # Draw panel border
+        cv2.rectangle(frame, (panel_x, panel_y), 
+                     (panel_x + panel_width, panel_y + panel_height), 
+                     (255, 255, 255), 2)
+        
+        # Display camera and apple info
+        y_offset = panel_y + 25
+        cv2.putText(frame, f"{camera_name} - Apple #{apple_index + 1}", 
+                   (panel_x + 10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 
+                   0.6, (255, 255, 255), 2)
+        
+        # Display apple type with colored background (from model)
+        y_offset += 30
+        type_bg_color = type_color
+        cv2.rectangle(frame, (panel_x + 10, y_offset - 20), 
+                     (panel_x + panel_width - 10, y_offset + 5), 
+                     type_bg_color, -1)
+        cv2.putText(frame, f"TYPE: {apple_type}", 
+                   (panel_x + 15, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 
+                   0.7, (255, 255, 255), 2)
+        
+        # Display model confidence
+        y_offset += 35
+        cv2.putText(frame, f"Model Confidence: {confidence:.1f}%", 
+                   (panel_x + 10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 
+                   0.5, (255, 255, 255), 1)
+        
+        # Display color breakdown (for reference only)
+        y_offset += 25
+        cv2.putText(frame, "Color Analysis (Reference):", 
+                   (panel_x + 10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 
+                   0.45, (200, 200, 200), 1)
+        
+        y_offset += 20
+        cv2.putText(frame, f"Green: {areas['green_percentage']:.1f}%", 
+                   (panel_x + 15, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 
+                   0.4, (0, 255, 0), 1)
+        
+        y_offset += 15
+        cv2.putText(frame, f"Red: {areas['red_percentage']:.1f}%", 
+                   (panel_x + 15, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 
+                   0.4, (0, 0, 255), 1)
+        
+        y_offset += 15
+        cv2.putText(frame, f"Rotten: {areas['rotten_percentage']:.1f}%", 
+                   (panel_x + 15, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 
+                   0.4, (0, 165, 255), 1)
+        
+        # Print to console for logging
+        print(f"\n{camera_name} - Apple #{apple_index + 1}:")
+        print(f"  Model Prediction: {apple_type} ({confidence:.1f}%)")
+        print(f"  Class ID: {class_id}")
+        print(f"  Color Analysis (Reference):")
+        print(f"    Green: {areas['green_percentage']:.1f}%")
+        print(f"    Red: {areas['red_percentage']:.1f}%")
+        print(f"    Rotten: {areas['rotten_percentage']:.1f}%")
+        
+        return apple_type
+       
     def process_frames(self):
         """Process frames from both cameras with YOLOv8"""
         prev_time = time.time()  # Store the current time for FPS calculation
@@ -96,25 +205,39 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
             box1 = results1[0].boxes 
             box2 = results2[0].boxes
             
-            if len(box1.cls) == 0  or len(box2.cls) == 0:
-                if len(box1.cls) > 0 and box1.cls[0] == 2:
-                    print("Apple detected in rotten apple")
-                if len(box2.cls) > 0 and box2.cls[0] == 2:
-                    print("Apple detected in rotten apple")
-                elif len(box1.cls) == 0 or len(box2.cls) == 0:
-                    pass
+            # if len(box1.cls) == 0  or len(box2.cls) == 0:
+            #     if len(box1.cls) > 0 and box1.cls[0] == 2:
+            #         print("Apple detected in rotten apple")
+            #     if len(box2.cls) > 0 and box2.cls[0] == 2:
+            #         print("Apple detected in rotten apple")
+            #     elif len(box1.cls) == 0 or len(box2.cls) == 0:
+            #         pass
 
-            elif len(box1.cls) > 0 and len(box2.cls) > 0:
-                if box1.cls[0] == 2 or box2.cls[0] == 2:
-                    print("apple is rotten")
-                elif box1.cls[0] != box2.cls[0]:
-                    print("apple is fresh")
-                elif box1.cls[0] == 1: 
-                    print("apple is red")
-                elif box1.cls[0] == 0:
-                    print("apple is green")
+            # elif len(box1.cls) > 0 and len(box2.cls) > 0:
+            #     if box1.cls[0] == 2 or box2.cls[0] == 2:
+            #         print("apple is rotten")
+            #     elif box1.cls[0] != box2.cls[0]:
+            #         print("apple is fresh")
+            #     elif box1.cls[0] == 1: 
+            #         print("apple is red")
+            #     elif box1.cls[0] == 0:
+            #         print("apple is green")
 
-# Do the same for frame 2 if needed
+            # Process Camera 1 results
+            if len(box1.cls) > 0:
+                for i in range(len(box1.cls)):
+                    areas = self.calculate_apple_color_areas(frame1_copy, box1[i])
+                    class_id = box1.cls[i].item()
+                    model_confidence = box1.conf[i].item()
+                    apple_type = self.display_apple_results(annotated_frame1, areas, i, "Camera 1", class_id, model_confidence)
+
+            # Process Camera 2 results
+            if len(box2.cls) > 0:
+                for i in range(len(box2.cls)):
+                    areas = self.calculate_apple_color_areas(frame2_copy, box2[i])
+                    class_id = box2.cls[i].item()
+                    model_confidence = box2.conf[i].item()
+                    apple_type = self.display_apple_results(annotated_frame2, areas, i, "Camera 2", class_id, model_confidence)
 
             # Add FPS information
             cv2.putText(annotated_frame1, f'FPS: {int(fps)}', (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)  # Add FPS text to frame1
@@ -262,7 +385,56 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
         annotated_img = results[0].plot()
         # print(">>>>> ",type(results[0].names[]))
         box = results[0].boxes
-        apple_result = int(box[0].cls[0]) # for value of apple_result (0: greenapple, 1: red apple, 2: rotten apple)
+        # apple_result = int(box[0].cls[0]) # for value of apple_result (0: greenapple, 1: red apple, 2: rotten apple)
+        
+        
+        if len(box.cls) > 0:
+            print("\n" + "="*50)
+            print("APPLE DETECTION RESULTS")
+            print("="*50)
+            
+            # For each detected apple
+            for i in range(len(box.cls)):
+                # Get model predictions
+                class_id = box.cls[i].item()
+                model_confidence = box.conf[i].item()
+                
+                # Calculate color areas for reference
+                areas = self.calculate_apple_color_areas(img, box[i])
+                
+                # Get apple classification from model
+                apple_type, confidence, type_color = self.get_apple_type_from_model(class_id, model_confidence)
+                
+                # Display results in proper section on image
+                self.display_apple_results(annotated_img, areas, i, "Image Analysis", class_id, model_confidence)
+                
+                print(f"\nApple #{i+1} Analysis:")
+                print(f"  Model Classification: {apple_type}")
+                print(f"  Model Confidence: {confidence:.1f}%")
+                print(f"  Class ID: {class_id}")
+                print(f"  Class Name: {self.class_names[int(class_id)]}")
+                print(f"  Color Analysis (Reference):")
+                print(f"    - Green: {areas['green_percentage']:.1f}%")
+                print(f"    - Red: {areas['red_percentage']:.1f}%")
+                print(f"    - Rotten: {areas['rotten_percentage']:.1f}%")
+                print(f"  Final Decision: ", end="")
+                
+                if apple_type == "ROTTEN":
+                    print("⚠️  REJECT - Apple is rotten (Model Prediction)")
+                elif apple_type in ["GREEN", "RED"]:
+                    print("✅ ACCEPT - Apple is good quality (Model Prediction)")
+                else:
+                    print(f"❓ REVIEW - {apple_type} (Model Prediction)")
+            
+            print("\n" + "="*50)
+        else:
+            print("No apples detected in the image.")
+            cv2.putText(annotated_img, "No apples detected", (50, 50), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+        
+        
+        
         # if apple_result == 0: # green apple
         #     print("apple is green")
         # elif apple_result == 1: # red apple
@@ -270,39 +442,42 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
         # elif apple_result == 2: # rotten apple
         #     print("apple is rotten")
 
-        if len(box.cls) > 0:
-            # For each detected apple in frame 1
-            for i in range(len(box.cls)):
-                # Calculate color areas for this apple
-                areas = self.calculate_apple_color_areas(img, box[i])
+        # if len(box.cls) > 0:
+        #     # For each detected apple in frame 1
+        #     for i in range(len(box.cls)):
+        #         # Calculate color areas for this apple
+        #         areas = self.calculate_apple_color_areas(img, box[i])
                 
-                # Display the results on the frame
-                text_y_pos = 100 + i * 60  # Position text below FPS counter
-                cv2.putText(annotated_img, f"Green: {areas['green_percentage']:.1f}%", 
-                        (20, text_y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                cv2.putText(annotated_img, f"Red: {areas['red_percentage']:.1f}%", 
-                        (20, text_y_pos + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                cv2.putText(annotated_img, f"Rotten: {areas['rotten_percentage']:.1f}%", 
-                        (20, text_y_pos + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (139, 69, 19), 2)
+        #         # Display the results on the frame
+        #         text_y_pos = 100 + i * 60  # Position text below FPS counter
+        #         cv2.putText(annotated_img, f"Green: {areas['green_percentage']:.1f}%", 
+        #                 (20, text_y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        #         cv2.putText(annotated_img, f"Red: {areas['red_percentage']:.1f}%", 
+        #                 (20, text_y_pos + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        #         cv2.putText(annotated_img, f"Rotten: {areas['rotten_percentage']:.1f}%", 
+        #                 (20, text_y_pos + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (139, 69, 19), 2)
 
-                green_detected = areas['green_percentage']
-                red_detected = areas['red_percentage']
-                rotten_detected = areas['rotten_percentage']
+        #         green_detected = areas['green_percentage']
+        #         red_detected = areas['red_percentage']
+        #         rotten_detected = areas['rotten_percentage']
                 
-                print(green_detected)
-                print(red_detected)
-                print(rotten_detected)
-                if green_detected > 50: 
-                    print(f"Green: {areas['green_percentage']:.1f}%")
-                    print("Apple is green")
-                if red_detected > 50:
+        #         print(green_detected)
+        #         print(red_detected)
+        #         print(rotten_detected)
+        #         if green_detected > 50: 
+        #             print(f"Green: {areas['green_percentage']:.1f}%")
+        #             print("Apple is green")
+        #         if red_detected > 50:
                     
-                    print(f"Red: {areas['red_percentage']:.1f}%")
-                    print("Apple is red")
-                if rotten_detected > 15:
-                    print(f"Rotten: {areas['rotten_percentage']:.1f}%")
-                    print("Apple is rotten")
+        #             print(f"Red: {areas['red_percentage']:.1f}%")
+        #             print("Apple is red")
+        #         if rotten_detected > 15:
+        #             print(f"Rotten: {areas['rotten_percentage']:.1f}%")
+        #             print("Apple is rotten")
             
+
+
+        
 
         # Display the annotated image
         cv2.imshow("YOLOv8 Detection", annotated_img)
