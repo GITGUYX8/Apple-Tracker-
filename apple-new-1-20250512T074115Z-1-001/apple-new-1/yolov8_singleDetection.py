@@ -96,71 +96,23 @@ class DualCameraYOLOv8SingleObjectTracker:  # Define a class for tracking object
             box1 = results1[0].boxes 
             box2 = results2[0].boxes
             print(box1.cls)
-            if len(box1.cls) > 0:
-                # For each detected apple in frame 1
-                for i in range(len(box1.cls)):
-                    # Calculate color areas for this apple
-                    areas = self.calculate_apple_color_areas(frame1_copy, box1[i])
-                    
-                    # Display the results on the frame
-                    text_y_pos = 100 + i * 60  # Position text below FPS counter
-                    cv2.putText(annotated_frame1, f"Green: {areas['green_percentage']:.1f}%", 
-                            (20, text_y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                    cv2.putText(annotated_frame1, f"Red: {areas['red_percentage']:.1f}%", 
-                            (20, text_y_pos + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                    cv2.putText(annotated_frame1, f"Rotten: {areas['rotten_percentage']:.1f}%", 
-                            (20, text_y_pos + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (139, 69, 19), 2)
+            if len(box1.cls) == 0  or len(box2.cls) == 0:
+                if len(box1.cls) > 0 and box1.cls[0] == 2:
+                    print("Apple detected in rotten apple")
+                if len(box2.cls) > 0 and box2.cls[0] == 2:
+                    print("Apple detected in rotten apple")
+                elif len(box1.cls) == 0 or len(box2.cls) == 0:
+                    pass
 
-                    green_detected_c1 = areas['green_percentage']
-                    red_detected_c1 = areas['red_percentage']
-                    rotten_detected_c1 = areas['rotten_percentage']
-                    
-                    print(green_detected_c1)
-                    print(red_detected_c1)
-                    print(rotten_detected_c1)
-                    if green_detected_c1 > 50: 
-                        print(f"Green: {areas['green_percentage']:.1f}%")
-                        print("Apple is green")
-                    if red_detected_c1 > 50:
-                        
-                        print(f"Red: {areas['red_percentage']:.1f}%")
-                        print("Apple is red")
-                    if rotten_detected_c1 > 15:
-                        print(f"Rotten: {areas['rotten_percentage']:.1f}%")
-                        print("Apple is rotten")
-
-            if len(box2.cls) > 0:
-                # For each detected apple in frame 1
-                for i in range(len(box2.cls)):
-                    # Calculate color areas for this apple
-                    areas = self.calculate_apple_color_areas(frame2_copy, box2[i])
-                    
-                    # Display the results on the frame
-                    text_y_pos = 100 + i * 60  # Position text below FPS counter
-                    cv2.putText(annotated_frame2, f"Green: {areas['green_percentage']:.1f}%", 
-                            (20, text_y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                    cv2.putText(annotated_frame2, f"Red: {areas['red_percentage']:.1f}%", 
-                            (20, text_y_pos + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                    cv2.putText(annotated_frame2, f"Rotten: {areas['rotten_percentage']:.1f}%", 
-                            (20, text_y_pos + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (139, 69, 19), 2)
-
-                    green_detected_c2 = areas['green_percentage']
-                    red_detected_c2 = areas['red_percentage']
-                    rotten_detected_c2 = areas['rotten_percentage']
-                    
-                    print(green_detected_c2)
-                    print(red_detected_c2)
-                    print(rotten_detected_c2)
-                    if green_detected_c2 > 50: 
-                        print(f"Green: {areas['green_percentage']:.1f}%")
-                        print("Apple is green")
-                    if red_detected_c2 > 50:
-                        
-                        print(f"Red: {areas['red_percentage']:.1f}%")
-                        print("Apple is red")
-                    if rotten_detected_c2 > 15:
-                        print(f"Rotten: {areas['rotten_percentage']:.1f}%")
-                        print("Apple is rotten")
+            elif len(box1.cls) > 0 and len(box2.cls) > 0:
+                if box1.cls[0] == 2 or box2.cls[0] == 2:
+                    print("apple is rotten")
+                elif box1.cls[0] != box2.cls[0]:
+                    print("apple is fresh")
+                elif box1.cls[0] == 1: 
+                    print("apple is red")
+                elif box1.cls[0] == 0:
+                    print("apple is green")
 
 # Do the same for frame 2 if needed
 
