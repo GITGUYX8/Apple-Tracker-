@@ -25,11 +25,19 @@ pip install ultralytics opencv-python numpy
 
 ### 1. Real-Time Dual Camera Tracking
 By default, the script runs in camera mode. It will open two camera feeds, perform detection, and display annotated results.
+There are three script with diffrent purposes such as by model which directly classify them by pretrained model. Secondly, classify by color which calculate green brown and yellow areas to classify. Thirdly, single detection for single apple (it uses algorithm to give a final result according to both feed)  
 
 ```bash
 python yoloV8_result_by_model.py
 ```
-
+or 
+```bash
+python yoloV8_result_by_color_area.py
+```
+or 
+```bash
+python yolov8_singleDetection.py
+```
 
 - **Camera IDs:**
   - `camera1_id=0` (default)
@@ -75,3 +83,4 @@ This project is for research and educational purposes. Please cite the original 
 - [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics)
 - OpenCV
 - NumPy
+
